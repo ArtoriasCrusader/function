@@ -1,0 +1,83 @@
+# Imports for JupyterLite
+!pip install "ipywidgets>=7,<8" 
+!pip install plotly==5.10
+
+import numpy as np
+import matplotlib.pyplot as plt
+from ipywidgets import interact, widgets
+import math
+# %matplotlib inline
+%matplotlib notebook
+import plotly.subplots as sp
+import plotly.graph_objects as go
+import plotly.express as px
+import plotly.io as pio
+pio.renderers.default='colab'
+
+# Define the equation function
+def stat_equation(controller, level, curve, rdiff, rarity, base):
+    return controller *(level + 1) ** (curve + rdiff * rarity) + base
+
+def controller_derivative(level, curve, rdiff, rarity):
+    return (level + 1) ** (curve + rdiff * rarity)
+
+def level_derivative(controller, level, curve, rdiff, rarity):
+    return controller * (curve + rdiff * rarity) * (level + 1) ** (curve + rdiff * rarity - 1)
+
+def curve_derivative(controller, level, curve, rdiff, rarity):
+    return controller * np.log(level + 1) * (level + 1) ** (curve + rdiff * rarity)
+
+def rarity_derivative(controller, level, curve, rdiff, rarity):
+    return rdiff * controller * np.log(level + 1) * (level + 1) ** (curve + rdiff * rarity)
+
+def rdiff_derivative(controller, level, curve, rdiff, rarity):
+    return rarity * controller * np.log(level + 1) * (level + 1) ** (curve + rdiff * rarity)
+
+#vectorize
+controller_derivative_vector= np.vectorize(controller_derivative)
+level_derivative_vector= np.vectorize(level_derivative)
+curve_derivative_vector= np.vectorize(curve_derivative)
+rarity_derivative_vector= np.vectorize(rarity_derivative)
+rdiff_derivative_vector= np.vectorize(rdiff_derivative)
+
+def update_plot(controller_value, level_value, curve_value, rarity_value, rdiff_value, base_value):
+    # Generate x values
+    x_values_10 = np.linspace(-10, 10, 100)
+    x_values_1 = np.linspace(-1, 1, 100)
+    x_values_5 = np.linspace(-5, 5, 100)
+
+    #generate stat derivatives
+    controller_derivative_value_scalar = controller_derivative(level_value, curve_value, rdiff_value, rarity_value)
+    controller_derivative_value = np.full(100, controller_derivative_value_scalar)
+    level_derivative_value = level_derivative(controller_value, x_values_10, curve_value, rdiff_value, rarity_value)
+    curve_derivative_value = curve_derivative(controller_value, level_value,  x_values_5, rdiff_value, rarity_value)
+    rarity_derivative_value = rarity_derivative(controller_value, level_value, curve_value, rdiff_value, x_values_5)
+    rdiff_derivative_value = rdiff_derivative(controller_value, level_value, curve_value, x_values_1, rarity_value)
+
+    plt.figure(figsize=(12, 10))
+
+    # Create subplots
+    fig = sp.make_subplots(rows=5, cols=1, subplot_titles=['controller derivative', 'level derivative', 'curve derivative', 'rarity derivative', 'rdiff derivative'])
+
+    # Plot the graph on each subplot
+    fig.add_trace(go.Scatter(x=x_values_1, y=controller_derivative_value, mode='lines', name='controller derivative'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=x_values_10, y=level_derivative_value, mode='lines', name='level derivative'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=x_values_5, y=curve_derivative_value, mode='lines', name='curve derivative'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=x_values_5, y=rarity_derivative_value, mode='lines', name='rarity derivative'), row=4, col=1)
+    fig.add_trace(go.Scatter(x=x_values_1, y=rdiff_derivative_value, mode='lines', name='rdiff derivative'), row=5, col=1)
+
+    # Update layout with increased width
+    fig.update_layout(height=800, width=1000, showlegend=True, title_text="Derivatives Plots", title_x=0.5)
+
+    # Show the plot
+    fig.show()
+
+    # Use interactive widgets to control coefficients
+interact(update_plot,
+         controller_value = widgets.FloatSlider(value=1, min=-1, max=1, step=0.01, description='controller'),
+         level_value=widgets.FloatSlider(value=1, min=0, max=10, step=0.1, description='level'),
+         curve_value=widgets.FloatSlider(value=1, min=-5, max= 5, step=0.1, description='curve'),
+         rarity_value=widgets.FloatSlider(value=1, min=1, max=5, step=0.1, description='rarity'),
+         rdiff_value=widgets.FloatSlider(value=1, min=0, max=1, step=0.01, description='rdiff'),
+         base_value=widgets.FloatSlider(value=1, min=-100, max=100, step=1, description='base')
+         )
